@@ -1,0 +1,102 @@
+<html>
+<head>
+<script src="http://cdn.peerjs.com/0.3/peer.js"></script>
+<script src="raphael.js"></script>
+<script type="text/javascript">
+
+//Variable that stores the connection to the p2p network.
+	var peer;
+		
+//Counts the peers connected to the server.
+	var connectedNodesCount = 1;
+	
+//Object that stores a mapping between nodeId -> Connection for exchanging messages with a certain client.
+	var connections = new Object();
+	
+//create the peer to communicate with other nodes with id = "u0_id"
+	peer = new Peer('u0_id', {key: 'x1bmgta9k9'});
+	
+//flag for critical part availability
+	var freeCriticalPart = true;
+	
+//number of connection waiting
+	var waitconns = 1;
+	
+//connections queue
+	var connectionQueue = new Object();
+	
+//number of connection to respond
+	var respond = 1;
+	
+//number of nodes participating
+	var N = 4;
+
+//initialize peer handlers
+	peer.on('connection', function(conn) {
+		//when peer receives data from a connection
+		conn.on('data', function(data){
+			
+			if (data == 'ready'){
+				if(connectedNodesCount <= N)	{
+				//connections[connectedNodesCount]=conn;
+							
+				//send the id back to the client
+					conn.send(connectedNodesCount);
+			
+				//update the counter
+					connectedNodesCount++;
+				}
+			} else if (data == 'request'){
+				//check for CP's availability 	
+				addLog("Request received");
+				//alert("Request received");
+				if(freeCriticalPart){
+					//flag CP as unavailable
+					freeCriticalPart = false ;
+					//send 'reply' to the connected process 
+					conn.send('reply');
+					addLog("Reply sended");
+				} else {
+					//if CP unavailable
+					addLog("Critical code is not free. One connection queued");
+					//add process connection to the queue
+					connectionQueue[waitconns]=conn;
+					//update waiting connection counter
+					waitconns++;
+				}
+			//if connection send 'release'
+			} else if(data == 'release'){
+			//make CP available for the next requested or waiting in queue connection
+				addLog("Release received. Critical code is free");
+				freeCriticalPart = true ;
+				//check if there are not responded connections
+				if(respond < waitconns){
+					addLog("Reply sended to first unresponded queued connection");
+					//send 'reply' to the first unresponded connection
+					sendMessage(connectionQueue[respond],'reply');
+					//update the responded connections' counter 
+					respond++;
+				}
+			}	
+		});
+	});
+	
+	alert("done");
+	
+function sendMessage(conn, msg) {
+	conn.send(msg);
+	}
+	
+function addLog(log) {
+	var div = document.getElementById("logspanel");
+	div.innerHTML = div.innerHTML + "<br>" + log;
+	}
+
+
+</script>
+</head>
+<body>
+<div id="renderer"></div>
+<div id="logspanel" style="width:500px;"></div>
+</body>
+</html>

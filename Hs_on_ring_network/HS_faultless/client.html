@@ -1,0 +1,182 @@
+<html>
+<head>
+<script src="http://cdn.peerjs.com/0.3/peer.js"></script>
+<script type="text/javascript">
+	
+	//create the peer to communicate with other nodes. No id needs to be specified here.
+	var peer = new Peer({key: 'qycr2jcs8ic9dx6r'}); 
+
+	//Object that will contain the message received for process at each round.
+	var receivedData;
+	
+	
+
+	//the node id, assigned by the server.
+	var nodeId;
+
+	////////////////////////////
+	//ADD CUSTOM VARIABLES HERE
+	//////////////////////////
+	var leader = false ;
+	var receivedMSGs;
+
+	//create a connection with the server
+	var conn = peer.connect('server_id');
+		conn.on('open', function(id){
+			//when connection has been established send keyword 'hi!' to tell server to add me in his nodes.
+			conn.send('hi!');
+		});
+
+	//on receive message from server handler
+	conn.on('data', function(data) {
+	
+	
+		if (isNaN(data)) {
+			//if the data is not just a simple number
+			//then it is a json string. deserialize data to javascript Object and assign it to receivedData.
+			receivedData = JSON.parse(data);
+			addLog("Processing round : " + receivedData.round + " : " + JSON.stringify(receivedData));
+			
+			//process the round and create the message to send
+			if (receivedData.round == 0) {
+				processRound(-1, receivedData.message, receivedData.round);
+			} else {
+				//iterate all available ports that you received a message.
+				for (var port in receivedData.message) {
+					//iterate all messages you received in this port.
+					for (var msg in receivedData.message[port]) {
+						//retrieve every message received in this round
+						processRound(port, receivedData.message[port][msg], receivedData.round);
+					}
+					
+				}
+			}
+			
+			//notify server that round has been processed
+			endRound();
+			
+		} else {
+			//if data is a number, that means it is the nodeId sent by the server for me.
+			addLog("got id : " + data)
+			//else it is the id
+			nodeId = data;
+			
+		}
+	
+	});
+
+	alert("done");
+
+
+	function constructMessage(id, phase, distance, flag){
+		var msg = new Object();
+		msg.ID = id;
+		msg.PHASE = phase;
+		msg.DIST = distance;
+		msg.FLAG = flag ;
+		return msg;
+	}
+
+	/**
+	 * Process current received message.
+	 *
+	 * port : the port where the message received from.
+	 * message : the message to process.
+	 * round : the current process round.
+	 **/
+	function processRound(port, message, round) {
+		//process a message here.
+		if(round==0){
+			receivedMSGs = 0;
+			sendMessage("all", constructMessage(nodeId, 1, 1, false));
+		} else {
+			var inId = message.ID ;
+			var phase = message.PHASE ;
+			var distance = message.DIST ;
+			var flag = message.FLAG ;			
+			if (inId >nodeId){
+				distance= distance -1;
+				if (distance == 0){ 
+					distance = 1 ;
+					for(var i=0; i<phase; i++)
+					{
+						distance = distance*2;						
+					}
+					flag = true;					
+					sendMessage(port, constructMessage(inId, phase, distance, flag));
+				} else {
+					if(port==0) { 						
+						sendMessage(1, constructMessage(inId, phase, distance, flag));
+					} else {
+						sendMessage(0, constructMessage(inId, phase, distance ,flag));
+					}
+				}				
+			}else if (inId == nodeId){
+					receivedMSGs = receivedMSGs + 1;
+				if (flag == false && receivedMSGs == 2){
+					leader = true ;
+					addLog("I am the Leader");
+				} else {
+					if (receivedMSGs == 2){
+					phase = phase + 1;
+					distance = 1 ;
+					for(var i=0; i<phase; i++)
+					{
+						distance = distance*2;
+						addLog(distance);
+					}
+					flag = false;
+					receivedMSGs = 0;						
+					sendMessage("all", constructMessage(nodeId, phase, distance ,flag));
+					}
+				}
+			} 
+		}
+		
+	}
+	
+	
+	/**
+	 * Function to send data through a port of the client.
+	 *
+	 * Port : to send the message to.
+	 * msg : the message to send.
+	 **/
+	function sendMessage(port, msg) {
+		//create container message, and add info needed by the server
+		//this should not be changed
+		var msgContainer = new Object();
+		msgContainer.internalId = nodeId;
+		msgContainer.receiver = port;
+		msgContainer.msg = msg;
+		
+		//serialize message for send
+		var toSend = JSON.stringify(msgContainer);
+		
+		//send message
+		conn.send(toSend);
+	}
+	
+	
+	
+	/**
+	 * Helper method that appends text to log container.
+	 **/
+	function addLog(log) {
+		var div = document.getElementById("logscontainer");
+		div.innerHTML = div.innerHTML + "<br>" + log;
+	}
+	
+	/**
+	 * This method sends server a message to tell him that the round has been processed.
+	 **/
+	function endRound() {
+		conn.send("roundprocessed");
+	}
+</script>
+</head>
+<body>
+<div id="logscontainer" style="width:500px;"></div>
+
+</body>
+</html>

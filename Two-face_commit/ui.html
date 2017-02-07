@@ -1,0 +1,70 @@
+<html>
+<head>
+<script src="http://cdn.peerjs.com/0.3/peer.js"></script>
+<script type="text/javascript">
+
+//create the peer to communicate with other nodes. No id needs to be specified here.
+	var peer = new Peer({key: 'qycr2jcs8ic9dx6r'}); 
+
+	//Object that will contain the message received for process at each round.
+	var receivedData;
+	//Object that will be filled with data to send for the next round to the other nodes.
+	var dataToSend;
+	
+	var i1 = Math.floor((Math.random()*3)+1);
+	
+	var decision ;
+	
+	if( i1 == 1 ){
+		decision = "yes";		
+	} else if ( i1 == 2){
+		decision = "no";
+	} else {
+		decision = "pending";
+	}
+	
+	//create a connection with the u0
+	var conn = peer.connect('u0_id');
+		conn.on('open', function(id){
+			//when connection has been established send keyword 'ready' to tell u0 to add me in his nodes.
+			conn.send('ready');
+			addLog("ready");
+		});
+	//on receive message from u0 handler	
+	conn.on('data', function(data) {
+		
+		if (isNaN(data))
+		{
+			decision = data ;
+			addLog("Telikh apofash:");
+			addLog(data);
+		} else {
+			addLog("Diergasia:");
+			addLog(data);
+			addLog("Stelnei");
+			addLog(decision);
+			conn.send(decision);
+		}
+		
+	});
+	
+	alert("done");
+
+
+function sendMessage(dataToSend) {
+		//send message
+		conn.send(dataToSend);
+	}
+
+function addLog(log) {
+		var div = document.getElementById("logscontainer");
+		div.innerHTML = div.innerHTML + "<br>" + log;
+	}
+
+</script>
+</head>
+<body>
+<div id="logscontainer" style="width:500px;"></div>
+
+</body>
+</html>

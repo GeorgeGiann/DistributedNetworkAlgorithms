@@ -1,0 +1,131 @@
+<html>
+<head>
+<script src="http://cdn.peerjs.com/0.3/peer.js"></script>
+<script type="text/javascript">
+	
+	//create the peer to communicate with other nodes. No id needs to be specified here.
+	var peer = new Peer({key: 'qycr2jcs8ic9dx6r'}); 
+
+	//Object that will contain the message received for process at each round.
+	var receivedData;
+	//Object that will be filled with data to send for the next round to the other nodes.
+	var dataToSend;
+	
+
+	//the node id, assigned by the server.
+	var nodeId;
+
+	////////////////////////////
+	//ADD CUSTOM VARIABLES HERE
+	//////////////////////////
+	var leader = false;
+	var arId = [0];
+	var K = 3;
+
+	//create a connection with the server
+	var conn = peer.connect('server_id');
+		conn.on('open', function(id){
+			//when connection has been established send keyword 'hi!' to tell server to add me in his nodes.
+			conn.send('hi!');
+		});
+
+	//on receive message from server handler
+	conn.on('data', function(data) {
+	//empty the object dataToSend so it won't remember old attributes	
+	dataToSend = new Object();
+	
+	if (isNaN(data)) {
+		//if the data is not just a simple number
+		//then it is a json string. deserialize data to javascript Object and assign it to receivedData.
+		receivedData = JSON.parse(data);
+		addLog("Processing round : " + receivedData.round + " : " + JSON.stringify(receivedData));
+		//process the round and create the message to send
+		if (receivedData.round == 0) {
+			processRound(receivedData.message, receivedData.round);
+		} else {
+			for (var index in receivedData.message) {
+				//retrieve every message received in this round
+				processRound(receivedData.message[index], receivedData.round);
+			}
+		}
+		
+		
+		//add in the message to send the nodeId.
+		addToMessage("internalId", nodeId);
+		//send the message
+		sendMessage();
+	} else {
+		//if data is a number, that means it is the nodeId sent by the server for me.
+		addLog("got id : " + data)
+		//else it is the id
+		nodeId = data;
+		
+	}
+	
+	});
+
+	alert("done");
+
+
+	/**
+	 * Send message to the server connection - server will forward it to the correct nodes
+	 **/
+	function sendMessage() {
+		//serialize message
+		var toSend = JSON.stringify(dataToSend);
+		//send message
+		conn.send(toSend);
+	}
+
+	/**
+	 * Helper method that adds data to the message to send.
+	 **/
+	function addToMessage(key, value) {
+		dataToSend[key] = value; 
+	}
+
+	/**
+	 * Process current received message.
+	 * message : the message to process.
+	 * round : the current process round.
+	 **/
+	function processRound(message, round) {
+		if (round == 0) {
+			addToMessage("ID", nodeId);
+			arId[0] = nodeId;			
+		} else {
+			var inId = message.ID;
+			if (inId != nodeId) {
+				arId.push(inId);
+				arId.sort(function(a,b){return b-a});				
+				if (arId.length > K){
+					arId.pop();					
+				}
+				addToMessage("ID", inId);
+			} else if (inId == nodeId) {
+				for(var i=0; i<K; i++){
+					if(arId[i] == nodeId){
+						leader=true;
+						addLog("I am the leader");
+					}
+				}
+				
+			}
+		}
+	}
+
+	
+	/**
+	 * Helper method that appends text to log container.
+	 **/
+	function addLog(log) {
+		var div = document.getElementById("logscontainer");
+		div.innerHTML = div.innerHTML + "<br>" + log;
+	}
+</script>
+</head>
+<body>
+<div id="logscontainer" style="width:500px;"></div>
+
+</body>
+</html>

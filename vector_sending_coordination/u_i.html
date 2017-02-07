@@ -1,0 +1,84 @@
+<html>
+<head>
+<script src="http://cdn.peerjs.com/0.3/peer.js"></script>
+<script type="text/javascript">
+
+//create the peer to communicate with other nodes. No id needs to be specified here.
+	var peer = new Peer({key: 'x1bmgta9k9'}); 
+
+//Object that will contain the message received for process at each round.
+	var receivedData;
+	
+//create a connection with the u0
+	var conn = peer.connect('u0_id');
+//Object that will be filled with data to send for the next round to the other nodes.
+	var dataToSend;
+//Nodes ID number	
+	var nodenumber;
+//Nodes Vector 	
+	var vector = [] ;
+//Random vector length	
+	var length = Math.floor((Math.random()*10)+1);
+//Random vector elements	
+	for (var i=0;i<length;i++)
+	{
+		vector[i]= Math.floor((Math.random()*10)+1);
+	}
+	
+	var num = Math.floor((Math.random()*5)+1);
+	
+conn.on('open', function(id){
+			//when connection has been established send keyword 'ready' to tell u0 to add me in his nodes.
+			conn.send('ready');
+			addLog("ready");
+		});
+		
+//on receive message from u0 handler	
+	conn.on('data', function(data) {
+		//check if incoming data is non a number ('reply')
+		if (isNaN(data)){	
+			addLog("Reply received");
+			//call critical code function
+			conn.send(nodenumber);
+			addLog("Node's id and vecotrs elements are sended");
+			addLog("Vectors elements are:");
+			for (var i=0;i<vector.length;i++)
+			{
+				conn.send(vector[i]);
+				addLog(vector[i]);
+				if(i == vector.length-1)
+				{
+					setTimeout(function(){conn.send('release'); addLog("Release sended");},num*1000);
+										
+				}
+			}
+			
+		//if data is number (process' number)
+		} else {
+			addLog("NODE:");
+			addLog(data);
+			//send request
+			nodenumber = data;
+			conn.send('request');
+			addLog("Request sended");
+			//send node id number
+			addLog(nodenumber);
+		}
+	});
+		
+	alert("done");
+
+
+function addLog(log) {
+		var div = document.getElementById("logscontainer");
+		div.innerHTML = div.innerHTML + "<br>" + log;
+	}
+
+
+</script>
+</head>
+<body>
+<div id="logscontainer" style="width:500px;"></div>
+
+</body>
+</html>
